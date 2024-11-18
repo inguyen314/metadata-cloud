@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const topOfConservationMap = new Map();
     const bottomOfFloodMap = new Map();
     const bottomOfConservationMap = new Map();
+    const ngvd29Map = new Map();
 
     // Fetch data functions with promise arrays for async processing
     const metadataPromises = [];
@@ -75,6 +76,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const topOfConservationPromises = [];
     const bottomOfFloodPromises = [];
     const bottomOfConservationPromises = [];
+    const ngvd29Promises = [];
 
     // Initial category fetch
     fetch(categoryApiUrl)
@@ -191,7 +193,19 @@ document.addEventListener('DOMContentLoaded', async function () {
                         .catch(error => console.error(`Error fetching owner for ${loc['location-id']}:`, error))
                     );
 
-                    // const levelIdEffectiveDate = "2024-01-01T08:00:00";
+                    const levelIdEffectiveDate = "2024-01-01T08:00:00";
+
+                    const levelIdNgvd29 = `${loc['location-id']}.Height.Inst.0.NGVD29`;
+                    const ngvd29ApiUrl = `${setBaseUrl}levels/${levelIdNgvd29}?office=${office}&effective-date=${levelIdEffectiveDate}&unit=ft`;
+                    ngvd29Promises.push(
+                        fetch(ngvd29ApiUrl)
+                            .then(response => response.status === 404 ? null : response.ok ? response.json() : Promise.reject(`Network response was not ok: ${response.statusText}`))
+                            .then(ngvd29Data => {
+                                // Set map to null if the data is null or undefined
+                                ngvd29Map.set(loc['location-id'], ngvd29Data != null ? ngvd29Data : null);
+                            })
+                            .catch(error => console.error(`Error fetching ngvd29 level for ${loc['location-id']}:`, error))
+                    );
 
                     // const recordStageLevelId = `${loc['location-id']}.Stage.Inst.0.Record Stage`;
                     // const recordStageApiUrl = `${setBaseUrl}levels/${recordStageLevelId}?office=${office}&effective-date=${levelIdEffectiveDate}&unit=ft`;
@@ -389,6 +403,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                                 loc['tsid-precip-lake'] = precipLakeTsidMap.get(loc['location-id']);
                                 loc['tsid-inflow-yesterday-lake'] = inflowYesterdayLakeTsidMap.get(loc['location-id']);
                                 loc['tsid-storage-lake'] = storageLakeTsidMap.get(loc['location-id']);
+                                loc['ngvd29'] = ngvd29Map.get(loc['location-id']);
                             });
                         }
                     });
@@ -532,6 +547,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                     let table = null;
                     if (type === "maps") {
                         table = createTableMetadataLatLong(combinedData, type, reportNumber);
+                        document.getElementById(`table_container_${setReportDiv}`).append(table);
+                    } else if (type === "datum") {
+                        table = createTableMetadataDatumConversion(combinedData, type, reportNumber);
                         document.getElementById(`table_container_${setReportDiv}`).append(table);
                     }
 
@@ -2359,6 +2377,195 @@ function createTableMetadataLatLong(combinedDataRiver, type, reportNumber) {
                 ? location['metadata']['state-initial']
                 : 'N/A';
             row.appendChild(stateCell);
+
+            table.appendChild(row);
+        });
+    });
+
+    // Return the constructed table element
+    return table;
+}
+
+function createTableMetadataDatumConversion(combinedDataRiver, type, reportNumber) {
+    // Create a table element and set an ID for styling or selection purposes
+    const table = document.createElement('table');
+    table.setAttribute('id', 'webrep');
+
+    combinedDataRiver = combinedDataRiver.filter((basin) => {
+        // Ensure 'assigned-locations' exists before proceeding
+        if (!Array.isArray(basin['assigned-locations'])) {
+            return false; // Filter out basins without 'assigned-locations'
+        }
+
+        // Filter 'assigned-locations' within each basin
+        basin['assigned-locations'] = basin['assigned-locations'].filter((location) => {
+            const currentLocationId = location['location-id'];
+            const locationList = location['owner']?.['assigned-locations'];
+
+            // Check if currentLocationId exists in locationList with attribute === 1
+            const foundInLocationList = locationList?.some(
+                loc => loc['location-id'] === currentLocationId && loc['attribute'] === 1
+            );
+
+            // Remove location if attribute is 1, keep it otherwise
+            return !foundInLocationList;
+        });
+
+        // Return true if there are remaining assigned-locations, otherwise filter out the basin
+        return basin['assigned-locations'].length > 0;
+    });
+
+    // Add 3-rows title
+    (() => {
+        // // TITLE ROW 1
+        // // Insert the first header row (main headers) for the table
+        // const headerRow = table.insertRow(0);
+
+        // // Define the main column headers
+        // const columns = ["River Mile", "Gage Station", "Current Level", "24hr Delta",
+        //     "National Weather Service River Forecast", "Flood Level",
+        //     "Gage Zero", "Record Stage", "Record Date"];
+
+        // // Create and append headers for each main column
+        // columns.forEach((columnName) => {
+        //     const th = document.createElement('th');
+        //     th.textContent = columnName;
+
+        //     // Set row spans or column spans based on header requirements
+        //     if (columnName === "River Mile" || columnName === "Gage Station" ||
+        //         columnName === "Current Level" || columnName === "24hr Delta" ||
+        //         columnName === "Flood Level" || columnName === "Gage Zero" ||
+        //         columnName === "Record Stage" || columnName === "Record Date") {
+        //         th.rowSpan = 3;
+        //     }
+
+        //     // Set colspan for the "National Weather Service River Forecast" column
+        //     if (columnName === "National Weather Service River Forecast") {
+        //         th.colSpan = 6;  // Adjusted to span across the 3 "Next 3 days" columns and 3 additional sub-columns
+        //     }
+
+        //     // Apply styling for header cells
+        //     th.style.backgroundColor = 'darkblue';
+        //     th.style.color = 'white';
+        //     headerRow.appendChild(th);
+        // });
+
+        // // TITLE ROW 2
+        // // Insert the second header row for sub-headers under "National Weather Service River Forecast"
+        // const headerRow2 = table.insertRow(1);
+
+        // // Define sub-headers for the forecast columns
+        // const columns2 = ["Next 3 days", "forecast time", "Crest", "Date"];
+
+        // columns2.forEach((columnName) => {
+        //     const th = document.createElement('th');
+        //     th.textContent = columnName;
+        //     th.style.backgroundColor = 'darkblue';
+        //     th.style.color = 'white';
+
+        //     // Set colspan for "Next 3 days" to include Day1, Day2, and Day3
+        //     if (columnName === "Next 3 days") {
+        //         th.colSpan = 3;
+        //     } else {
+        //         th.rowSpan = 2;
+        //     }
+        //     headerRow2.appendChild(th);
+        // });
+
+        // // TITLE ROW 3
+        // // Insert the third header row to show individual day headers under "Next 3 days"
+        // const headerRow3 = table.insertRow(2);
+
+        // // Define columns for the individual days under "Next 3 days"
+        // const dayColumns = ["Day1", "Day2", "Day3"];
+
+        // dayColumns.forEach((day) => {
+        //     const th = document.createElement('th');
+        //     th.textContent = day;
+        //     th.style.backgroundColor = 'darkblue';
+        //     th.style.color = 'white';
+        //     headerRow3.appendChild(th);
+        // });
+    })();
+
+    combinedDataRiver.forEach((basin) => {
+        const basinRow = document.createElement('tr');
+        const basinCell = document.createElement('th');
+        basinCell.colSpan = 14;
+        basinCell.textContent = basin[`id`];
+        basinCell.style.height = '30px';
+        basinCell.style.textAlign = 'left';
+        basinCell.style.paddingLeft = '10px';
+        basinCell.style.backgroundColor = 'darkblue';
+        basinRow.appendChild(basinCell);
+        table.appendChild(basinRow);
+
+        // Add custom row below each basin with 4 unique columns
+        const customRow = document.createElement('tr');
+        const customTexts = ["Location", "NGVD28", "NAVD88", "Offset"]; // Define unique text for each cell
+        customTexts.forEach((text) => {
+            const customCell = document.createElement('th');
+            customCell.textContent = text;
+            customCell.style.textAlign = 'center';
+            customCell.style.backgroundColor = 'darkblue';
+            customRow.appendChild(customCell);
+        });
+        table.appendChild(customRow);
+
+        basin['assigned-locations'].forEach((location) => {
+            const row = document.createElement('tr');
+
+            // 01 - Location
+            const locCell = document.createElement('td');
+            locCell.textContent = location && location['location-id']
+                ? location['location-id']
+                : 'N/A';
+            locCell.style.width = '55%';
+            row.appendChild(locCell);
+
+            // 02 - NGVD29
+            const ngvd29Cell = document.createElement('td');
+
+            // Check if the value exists and is less than 900
+            if (location && location['ngvd29'] && location['ngvd29']['constant-value'] < 900) {
+                ngvd29Cell.textContent = location['ngvd29']['constant-value'].toFixed(2);
+            } else {
+                ngvd29Cell.textContent = ''; // Leave blank if value is 900 or greater, or if it doesn't exist
+            }
+
+            ngvd29Cell.style.width = '15%';
+            row.appendChild(ngvd29Cell);
+
+            // 03 - NAVD88
+            const navd88Cell = document.createElement('td');
+
+            // Check if elevation exists and is less than 900
+            if (location && location['metadata'] && location['metadata']['elevation'] < 900) {
+                navd88Cell.textContent = location['metadata']['elevation'].toFixed(2);
+            } else {
+                navd88Cell.textContent = ''; // Leave blank if elevation is 900 or greater, or if it doesn't exist
+            }
+
+            navd88Cell.style.width = '15%';
+            row.appendChild(navd88Cell);
+
+            // 04 - Offset
+            const offsetCell = document.createElement('td');
+
+            // Check if both constant-value and elevation exist, and the offset is less than 900
+            if (
+                location &&
+                location['ngvd29'] && location['ngvd29']['constant-value'] &&
+                location['metadata'] && location['metadata']['elevation']
+            ) {
+                const offset = location['ngvd29']['constant-value'] - location['metadata']['elevation'];
+                offsetCell.textContent = offset < 900 ? offset.toFixed(2) : ''; // Leave blank if offset is 900 or greater
+            } else {
+                offsetCell.textContent = ''; // Leave blank if either value doesn't exist
+            }
+
+            offsetCell.style.width = '15%';
+            row.appendChild(offsetCell);
 
             table.appendChild(row);
         });
