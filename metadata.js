@@ -116,42 +116,61 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                             if (getBasin) {
                                 // Fetch additional data needed for filtering
-                                const additionalDataPromises = getBasin['assigned-locations'].map(location => {
+                                const additionalLocationGroupOwnerDataPromises = getBasin['assigned-locations'].map(location => {
                                     return fetchAdditionalLocationGroupOwnerData(location[`location-id`], setBaseUrl, setLocationGroupOwner, office);
                                 });
 
-                                // console.log("additionalDataPromises: ", additionalDataPromises);
-
                                 // Wait for all promises to resolve
-                                Promise.all(additionalDataPromises)
-                                    .then(results => {
-                                        results = results[0];
-                                        // console.log("results: ", results);
+                                Promise.all(additionalLocationGroupOwnerDataPromises)
+                                    .then(locationGroupOwnerData => {
+                                        locationGroupOwnerData = locationGroupOwnerData[0];
+                                        // console.log("locationGroupOwnerData: ", locationGroupOwnerData);
 
-                                        // Loop through getBasin['assigned-locations'] and compare with results
-                                        getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => {
-                                            let matchedData;
-                                            // Check if 'assigned-locations' exists in the results object
-                                            if (results && results['assigned-locations']) {
-                                                for (const loc of results['assigned-locations']) {
-                                                    // console.log('Comparing:', loc['location-id'], 'with', location['location-id']);
-                                                    if (loc['location-id'] === location['location-id']) {
-                                                        matchedData = results;
-                                                        break;
+                                        // Loop through getBasin['assigned-locations'] and compare with locationGroupOwnerData
+                                        (() => {
+                                            getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => {
+                                                let matchedData;
+                                                // Check if 'assigned-locations' exists in the locationGroupOwnerData object
+                                                if (locationGroupOwnerData && locationGroupOwnerData['assigned-locations']) {
+                                                    for (const loc of locationGroupOwnerData['assigned-locations']) {
+                                                        // console.log('Comparing:', loc['location-id'], 'with', location['location-id']);
+                                                        if (loc['location-id'] === location['location-id']) {
+                                                            matchedData = locationGroupOwnerData;
+                                                            break;
+                                                        }
                                                     }
                                                 }
-                                            }
-                                            // console.log("matchedData: ", matchedData);
+                                                // console.log("matchedData: ", matchedData);
 
-                                            if (matchedData) {
-                                                // If matchedData exists and contains a location with the same location-id, keep the location
-                                                return true;
-                                            } else {
-                                                // Log the location that has been removed
-                                                console.log("Removed location: ", location);
-                                                return false;  // Remove location if there is no match
-                                            }
-                                        });
+                                                if (matchedData) {
+                                                    // If matchedData exists and contains a location with the same location-id, keep the location
+                                                    return true;
+                                                } else {
+                                                    // Log the location that has been removed
+                                                    console.log("Removed location: ", location);
+                                                    return false;  // Remove location if there is no match
+                                                }
+                                            });
+                                        })();
+
+
+                                        // Filter to retain locations that match gage
+                                        (() => {
+                                            getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => {
+                                                const matchFound = location['location-id'] === gage;
+
+                                                if (matchFound) {
+                                                    return true;  // Keep if there's a match
+                                                } else {
+                                                    console.log("Removed location (no match with gage): ", location);
+                                                    return false;  // Remove if no match
+                                                }
+                                            });
+
+                                            console.log("Filtered assigned locations with match:", getBasin['assigned-locations']);
+                                        })();
+
+
 
                                         // Filter locations with attribute <= 900
                                         getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => location.attribute <= 900);
@@ -550,6 +569,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                         document.getElementById(`table_container_${setReportDiv}`).append(table);
                     } else if (type === "datum") {
                         table = createTableMetadataDatumConversion(combinedData, type, reportNumber);
+                        document.getElementById(`table_container_${setReportDiv}`).append(table);
+                    } else if (type === "data") {
+                        table = createTableMetadataData(combinedData, type, reportNumber);
                         document.getElementById(`table_container_${setReportDiv}`).append(table);
                     }
 
@@ -2570,6 +2592,217 @@ function createTableMetadataDatumConversion(combinedDataRiver, type, reportNumbe
             table.appendChild(row);
         });
     });
+
+    // Return the constructed table element
+    return table;
+}
+
+function createTableMetadataData(combinedDataRiver, type, reportNumber) {
+    // Create a table element and set an ID for styling or selection purposes
+    const table = document.createElement('table');
+    table.setAttribute('id', 'webrep');
+
+    combinedDataRiver = combinedDataRiver.filter((basin) => {
+        // Ensure 'assigned-locations' exists before proceeding
+        if (!Array.isArray(basin['assigned-locations'])) {
+            return false; // Filter out basins without 'assigned-locations'
+        }
+
+        // Filter 'assigned-locations' within each basin
+        basin['assigned-locations'] = basin['assigned-locations'].filter((location) => {
+            const currentLocationId = location['location-id'];
+            const locationList = location['owner']?.['assigned-locations'];
+
+            // Check if currentLocationId exists in locationList with attribute === 1
+            const foundInLocationList = locationList?.some(
+                loc => loc['location-id'] === currentLocationId && loc['attribute'] === 1
+            );
+
+            // Remove location if attribute is 1, keep it otherwise
+            return !foundInLocationList;
+        });
+
+        // Return true if there are remaining assigned-locations, otherwise filter out the basin
+        return basin['assigned-locations'].length > 0;
+    });
+
+    // Add 3-rows title
+    (() => {
+        // // TITLE ROW 1
+        // // Insert the first header row (main headers) for the table
+        // const headerRow = table.insertRow(0);
+
+        // // Define the main column headers
+        // const columns = ["River Mile", "Gage Station", "Current Level", "24hr Delta",
+        //     "National Weather Service River Forecast", "Flood Level",
+        //     "Gage Zero", "Record Stage", "Record Date"];
+
+        // // Create and append headers for each main column
+        // columns.forEach((columnName) => {
+        //     const th = document.createElement('th');
+        //     th.textContent = columnName;
+
+        //     // Set row spans or column spans based on header requirements
+        //     if (columnName === "River Mile" || columnName === "Gage Station" ||
+        //         columnName === "Current Level" || columnName === "24hr Delta" ||
+        //         columnName === "Flood Level" || columnName === "Gage Zero" ||
+        //         columnName === "Record Stage" || columnName === "Record Date") {
+        //         th.rowSpan = 3;
+        //     }
+
+        //     // Set colspan for the "National Weather Service River Forecast" column
+        //     if (columnName === "National Weather Service River Forecast") {
+        //         th.colSpan = 6;  // Adjusted to span across the 3 "Next 3 days" columns and 3 additional sub-columns
+        //     }
+
+        //     // Apply styling for header cells
+        //     th.style.backgroundColor = 'darkblue';
+        //     th.style.color = 'white';
+        //     headerRow.appendChild(th);
+        // });
+
+        // // TITLE ROW 2
+        // // Insert the second header row for sub-headers under "National Weather Service River Forecast"
+        // const headerRow2 = table.insertRow(1);
+
+        // // Define sub-headers for the forecast columns
+        // const columns2 = ["Next 3 days", "forecast time", "Crest", "Date"];
+
+        // columns2.forEach((columnName) => {
+        //     const th = document.createElement('th');
+        //     th.textContent = columnName;
+        //     th.style.backgroundColor = 'darkblue';
+        //     th.style.color = 'white';
+
+        //     // Set colspan for "Next 3 days" to include Day1, Day2, and Day3
+        //     if (columnName === "Next 3 days") {
+        //         th.colSpan = 3;
+        //     } else {
+        //         th.rowSpan = 2;
+        //     }
+        //     headerRow2.appendChild(th);
+        // });
+
+        // // TITLE ROW 3
+        // // Insert the third header row to show individual day headers under "Next 3 days"
+        // const headerRow3 = table.insertRow(2);
+
+        // // Define columns for the individual days under "Next 3 days"
+        // const dayColumns = ["Day1", "Day2", "Day3"];
+
+        // dayColumns.forEach((day) => {
+        //     const th = document.createElement('th');
+        //     th.textContent = day;
+        //     th.style.backgroundColor = 'darkblue';
+        //     th.style.color = 'white';
+        //     headerRow3.appendChild(th);
+        // });
+    })();
+
+
+
+
+    // Assume `basin` is the single object in combinedDataRiver
+    const basin = combinedDataRiver[0];
+
+    // Create a basin row
+    const basinRow = document.createElement('tr');
+    const basinCell = document.createElement('th');
+    basinCell.colSpan = 14;
+    basinCell.textContent = basin[`id`];
+    basinCell.style.height = '30px';
+    basinCell.style.textAlign = 'left';
+    basinCell.style.paddingLeft = '10px';
+    basinCell.style.backgroundColor = 'darkblue';
+    basinRow.appendChild(basinCell);
+    table.appendChild(basinRow);
+
+    // Iterate through assigned locations for the basin
+    basin['assigned-locations'].forEach((location) => {
+        const row = document.createElement('tr');
+
+        // Location ID cell
+        const locCell = document.createElement('th');
+        locCell.textContent = location && location['location-id']
+            ? location['location-id']
+            : 'N/A';
+        locCell.colSpan = 2; // Set colspan to 2
+        locCell.style.textAlign = 'left'; // Align text to the left
+        row.appendChild(locCell);
+        table.appendChild(row);
+
+        // Add header row with colspan 2 for Metadata
+        const metadataHeaderRow = document.createElement('tr');
+        const metadataHeaderCell = document.createElement('th');
+        metadataHeaderCell.colSpan = 2;
+        metadataHeaderCell.textContent = 'Metadata';
+        metadataHeaderCell.style.textAlign = 'center'; // Center-align the header
+        metadataHeaderRow.appendChild(metadataHeaderCell);
+        table.appendChild(metadataHeaderRow);
+
+        // Iterate through the metadata object and display key-value pairs in two columns
+        const metadata = location.metadata;
+        for (const [key, value] of Object.entries(metadata)) {
+            const metadataRow = document.createElement('tr');
+
+            // Key cell for metadata
+            const keyCell = document.createElement('td');
+            keyCell.textContent = key;
+            keyCell.style.fontWeight = 'bold';
+            keyCell.style.width = '25%';  // Set width to 25%
+            keyCell.style.textAlign = 'left';  // Align text to the left
+            metadataRow.appendChild(keyCell);
+
+            // Value cell for metadata
+            const valueCell = document.createElement('td');
+            valueCell.textContent = value;
+            valueCell.style.width = '75%';  // Set width to 75%
+            valueCell.style.textAlign = 'left';  // Align text to the left
+            metadataRow.appendChild(valueCell);
+
+            // Append the metadata row to the table
+            table.appendChild(metadataRow);
+        }
+
+        // Add header row with colspan 2 for NGVD29
+        const ngvd29HeaderRow = document.createElement('tr');
+        const ngvd29HeaderCell = document.createElement('th');
+        ngvd29HeaderCell.colSpan = 2;
+        ngvd29HeaderCell.textContent = 'NGVD29';
+        ngvd29HeaderCell.style.textAlign = 'center'; // Center-align the header
+        ngvd29HeaderRow.appendChild(ngvd29HeaderCell);
+        table.appendChild(ngvd29HeaderRow);
+
+        // Iterate through the ngvd29 object if it exists, and display key-value pairs in two columns
+        const ngvd29 = location.ngvd29;
+        if (ngvd29) {
+            for (const [key, value] of Object.entries(ngvd29)) {
+                const ngvd29Row = document.createElement('tr');
+
+                // Key cell for ngvd29
+                const keyCell = document.createElement('td');
+                keyCell.textContent = key;
+                keyCell.style.fontWeight = 'bold';
+                keyCell.style.width = '25%';  // Set width to 25%
+                keyCell.style.textAlign = 'left';  // Align text to the left
+                ngvd29Row.appendChild(keyCell);
+
+                // Value cell for ngvd29
+                const valueCell = document.createElement('td');
+                valueCell.textContent = value;
+                valueCell.style.width = '75%';  // Set width to 75%
+                valueCell.style.textAlign = 'left';  // Align text to the left
+                ngvd29Row.appendChild(valueCell);
+
+                // Append the ngvd29 row to the table
+                table.appendChild(ngvd29Row);
+            }
+        }
+    });
+
+
+
+
 
     // Return the constructed table element
     return table;
