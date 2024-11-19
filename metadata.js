@@ -126,51 +126,48 @@ document.addEventListener('DOMContentLoaded', async function () {
                                         locationGroupOwnerData = locationGroupOwnerData[0];
                                         // console.log("locationGroupOwnerData: ", locationGroupOwnerData);
 
-                                        // Loop through getBasin['assigned-locations'] and compare with locationGroupOwnerData
-                                        (() => {
-                                            getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => {
-                                                let matchedData;
-                                                // Check if 'assigned-locations' exists in the locationGroupOwnerData object
-                                                if (locationGroupOwnerData && locationGroupOwnerData['assigned-locations']) {
-                                                    for (const loc of locationGroupOwnerData['assigned-locations']) {
-                                                        // console.log('Comparing:', loc['location-id'], 'with', location['location-id']);
-                                                        if (loc['location-id'] === location['location-id']) {
-                                                            matchedData = locationGroupOwnerData;
-                                                            break;
+                                        if (type !== "data") {
+                                            // Loop through getBasin['assigned-locations'] and compare with locationGroupOwnerData
+                                                getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => {
+                                                    let matchedData;
+                                                    // Check if 'assigned-locations' exists in the locationGroupOwnerData object
+                                                    if (locationGroupOwnerData && locationGroupOwnerData['assigned-locations']) {
+                                                        for (const loc of locationGroupOwnerData['assigned-locations']) {
+                                                            // console.log('Comparing:', loc['location-id'], 'with', location['location-id']);
+                                                            if (loc['location-id'] === location['location-id']) {
+                                                                matchedData = locationGroupOwnerData;
+                                                                break;
+                                                            }
                                                         }
                                                     }
-                                                }
-                                                // console.log("matchedData: ", matchedData);
+                                                    // console.log("matchedData: ", matchedData);
 
-                                                if (matchedData) {
-                                                    // If matchedData exists and contains a location with the same location-id, keep the location
-                                                    return true;
-                                                } else {
-                                                    // Log the location that has been removed
-                                                    console.log("Removed location: ", location);
-                                                    return false;  // Remove location if there is no match
-                                                }
-                                            });
-                                        })();
+                                                    if (matchedData) {
+                                                        // If matchedData exists and contains a location with the same location-id, keep the location
+                                                        return true;
+                                                    } else {
+                                                        // Log the location that has been removed
+                                                        console.log("Removed location: ", location);
+                                                        return false;  // Remove location if there is no match
+                                                    }
+                                                });  
+                                        }
 
+                                        if (type === "data") {
+                                            // Filter to retain locations that match gage
+                                                getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => {
+                                                    const matchFound = location['location-id'] === gage;
 
-                                        // Filter to retain locations that match gage
-                                        (() => {
-                                            getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => {
-                                                const matchFound = location['location-id'] === gage;
+                                                    if (matchFound) {
+                                                        return true;  // Keep if there's a match
+                                                    } else {
+                                                        console.log("Removed location (no match with gage): ", location);
+                                                        return false;  // Remove if no match
+                                                    }
+                                                });
 
-                                                if (matchFound) {
-                                                    return true;  // Keep if there's a match
-                                                } else {
-                                                    console.log("Removed location (no match with gage): ", location);
-                                                    return false;  // Remove if no match
-                                                }
-                                            });
-
-                                            console.log("Filtered assigned locations with match:", getBasin['assigned-locations']);
-                                        })();
-
-
+                                                console.log("Filtered assigned locations with match:", getBasin['assigned-locations']);
+                                        }
 
                                         // Filter locations with attribute <= 900
                                         getBasin['assigned-locations'] = getBasin['assigned-locations'].filter(location => location.attribute <= 900);
