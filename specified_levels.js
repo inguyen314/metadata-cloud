@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         : `https://cwms-data.usace.army.mil/cwms-data`;
 
     console.log("setBaseUrl: ", setBaseUrl);
-    
+
     const categoryApiUrl = `${setBaseUrl}/specified-levels?office=${office}`;
 
     // Initial category fetch with headers for versioning
@@ -27,12 +27,24 @@ document.addEventListener('DOMContentLoaded', async function () {
     })
     .then(data => {
         console.log("data: ", data);
+
+        // Create and append the table to the specified container
+        const table = createTableSpecifiedLevel(data);
+        const tableContainer = document.getElementById(`table_container_${setReportDiv}`);
+        if (tableContainer) {
+            tableContainer.append(table);
+        } else {
+            console.warn(`Container with ID "table_container_${setReportDiv}" not found.`);
+        }
+
+        loadingIndicator.style.display = 'none';
     })
     .catch(error => {
         console.error('There was a problem with the initial fetch operation:', error);
         loadingIndicator.style.display = 'none';
     });
 });
+
 
 
 function filterByLocationCategory(array, setLocationCategory) {
@@ -2415,6 +2427,38 @@ function fetchAdditionalLocationGroupOwnerData(locationId, setBaseUrl, setLocati
             console.error(`Error fetching additional data for ${locationId}:`, error);
             return null; // Return null in case of error
         });
+}
+
+function createTableSpecifiedLevel(data) {
+    // Create the table element
+    const table = document.createElement("table");
+    table.style.borderCollapse = "collapse";
+    table.style.width = "100%";
+    table.style.marginBottom = "40px";
+
+    // Loop through each item in the data array
+    data.forEach(item => {
+        // Create a table row
+        const row = document.createElement("tr");
+
+        // Create a table cell
+        const cell = document.createElement("td");
+        cell.style.border = "1px solid #ccc";
+        cell.style.padding = "5px";
+
+        // Add the id and description (if it exists) to the cell
+        cell.innerText = item.id;
+        // if (item.description) {
+        //     cell.innerText += ` - ${item.description}`;
+        // }
+
+        // Append the cell to the row, and the row to the table
+        row.appendChild(cell);
+        table.appendChild(row);
+    });
+
+    // Return the created table
+    return table;
 }
 
 // ******************************************************
