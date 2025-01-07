@@ -428,11 +428,11 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                     // Filter data
                     (() => {
-                        // Step 1: Remove locations where 'attribute' ends with '.1'
-                        combinedData.forEach(dataObj => {
-                            dataObj['assigned-locations'] = dataObj['assigned-locations'].filter(location => !location['attribute'].toString().endsWith('.1'));
-                        });
-                        console.log('Removed locations with attribute ending in .1:', combinedData);
+                        // // Step 1: Remove locations where 'attribute' ends with '.1'
+                        // combinedData.forEach(dataObj => {
+                        //     dataObj['assigned-locations'] = dataObj['assigned-locations'].filter(location => !location['attribute'].toString().endsWith('.1'));
+                        // });
+                        // console.log('Removed locations with attribute ending in .1:', combinedData);
 
                         // Step 2: Remove locations without matching 'location-id' in owner's 'assigned-locations'
                         combinedData.forEach(dataGroup => {
