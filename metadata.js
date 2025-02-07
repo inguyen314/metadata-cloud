@@ -34,9 +34,15 @@ document.addEventListener('DOMContentLoaded', async function () {
     loadingIndicator.style.display = 'block';
 
     // Base URL configuration based on data access type (public/internal)
-    let setBaseUrl = cda === "internal"
-        ? `https://wm.${office.toLowerCase()}.ds.usace.army.mil:8243/${office.toLowerCase()}-data/`
-        : `https://cwms-data.usace.army.mil/cwms-data/`;
+    let setBaseUrl = null;
+    if (cda === "internal") {
+        setBaseUrl = `https://wm.${office.toLowerCase()}.ds.usace.army.mil:8243/${office.toLowerCase()}-data/`;
+    } else if (cda === "internal-coop") {
+        setBaseUrl = `https://wm-${office.toLowerCase()}coop.mvk.ds.usace.army.mil:8243/${office.toLowerCase()}-data/`;
+    } else if (cda === "public") {
+        setBaseUrl = `https://cwms-data.usace.army.mil/cwms-data/`;
+    }
+    // console.log("setBaseUrl: ", setBaseUrl);
 
     const categoryApiUrl = `${setBaseUrl}location/group?office=${office}&include-assigned=false&location-category-like=${setLocationCategory}`;
 
@@ -147,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                                                     return true;
                                                 } else {
                                                     // Log the location that has been removed
-                                                    console.log("Removed location: ", location);
+                                                    // console.log("Removed location: ", location);
                                                     return false;  // Remove location if there is no match
                                                 }
                                             });
@@ -542,23 +548,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                 })
                 .then(() => {
                     console.log('All combinedData fetched successfully:', combinedData);
-
-                    // const formatDate = (daysToAdd) => {
-                    //     const date = new Date();
-                    //     date.setDate(date.getDate() + daysToAdd);
-                    //     return ('0' + (date.getMonth() + 1)).slice(-2) + '-' + ('0' + date.getDate()).slice(-2);
-                    // };
-
-                    // const [day1, day2, day3] = [1, 2, 3].map(days => formatDate(days));
-                    // const combinedDataRiver = structuredClone ? structuredClone(combinedData) : JSON.parse(JSON.stringify(combinedData));
-                    // const combinedDataReservoir = structuredClone ? structuredClone(combinedData) : JSON.parse(JSON.stringify(combinedData));
-
-                    // const tableRiver = createTableRiver(combinedDataRiver, type, reportNumber, day1, day2, day3);
-                    // const tableReservoir = createTableReservoir(combinedDataReservoir, type, reportNumber, day1, day2, day3);
-
-                    // document.getElementById(`table_container_${setReportDiv}`).append(tableRiver);
-                    // document.getElementById(`table_container_${setReportDiv}`).append(tableReservoir);
-                    // document.getElementById(`table_container_${setReportDiv}`).append(tableRiver, tableReservoir);
 
                     let table = null;
                     if (type === "maps") {
